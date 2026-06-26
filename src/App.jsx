@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MapView from "./components/MapView.jsx";
-import { api } from "./api.js";
+import { api, getSession } from "./api.js";
 
 const emptyRequest = {
   studentGrade: "",
@@ -73,9 +73,14 @@ export default function App() {
   const [activeMatchId, setActiveMatchId] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  const [authUser, setAuthUser] = useState(() => getSession());
+  const [authForm, setAuthForm] = useState({ mode: "login", role: "parent", nickname: "", contact: "", password: "" });
 
   useEffect(() => {
-    api.bootstrap().then(setData).catch((err) => setNotice(err.message));
+    api.bootstrap().then((snapshot) => {
+      setData(snapshot);
+      if (snapshot.currentUser) setAuthUser(snapshot.currentUser);
+    }).catch((err) => setNotice(err.message));
   }, []);
 
   const currentUser = useMemo(() => {
@@ -84,7 +89,7 @@ export default function App() {
       role,
       nickname: role === "parent" ? "家长演示账号" : "教师演示账号"
     };
-  }, [data.users, role]);
+  }, [authUser, data.users, role]);
 
   const stats = useMemo(() => {
     return [
@@ -124,6 +129,26 @@ export default function App() {
   const myMatches = data.matches.filter((match) => match.parentId === currentUser.id || match.teacherId === currentUser.id);
   const activeMatch = myMatches.find((match) => match.id === activeMatchId) || myMatches[0];
   const activeMessages = activeMatch ? data.messages.filter((item) => item.matchId === activeMatch.id) : [];
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    try {
+      const payload = { role: authForm.role, nickname: authForm.nickname, contact: authForm.contact, password: authForm.password };
+      const result = authForm.mode === "register" ? await api.register(payload) : await api.login(payload);
+      setAuthUser(result.user);
+      setRole(result.user.role);
+      setNotice(authForm.mode === "register" ? "Account created." : "Logged in.");
+      setData(await api.bootstrap());
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
+
+  async function logout() {
+    await api.logout();
+    setAuthUser(null);
+    setNotice("Logged out. Demo browsing mode is active.");
+  }
 
   async function refreshFromSnapshot(result) {
     if (result.snapshot) setData(result.snapshot);
@@ -385,6 +410,37 @@ export default function App() {
         </main>
       )}
     </div>
+  );
+}
+
+function AuthPanel({ user, form, setForm, onSubmit, onLogout }) {
+  if (user) {
+    return (
+      <div className="auth-panel signed-in">
+        <span>{user.nickname}</span>
+        <strong>{user.role === "teacher" ? "Teacher" : "Parent"}</strong>
+        <button type="button" onClick={onLogout}>Logout</button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="auth-panel" onSubmit={onSubmit}>
+      <select value={form.mode} onChange={(event) => setForm({ ...form, mode: event.target.value })}>
+        <option value="login">Login</option>
+        <option value="register">Register</option>
+      </select>
+      {form.mode === "register" && (
+        <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
+          <option value="parent">Parent</option>
+          <option value="teacher">Teacher</option>
+        </select>
+      )}
+      {form.mode === "register" && <input value={form.nickname} onChange={(event) => setForm({ ...form, nickname: event.target.value })} placeholder="Nickname" />}
+      <input value={form.contact} onChange={(event) => setForm({ ...form, contact: event.target.value })} placeholder="Phone / email" />
+      <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Password" />
+      <button className="primary" type="submit">{form.mode === "register" ? "Register" : "Login"}</button>
+    </form>
   );
 }
 

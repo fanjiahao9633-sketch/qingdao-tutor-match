@@ -24,20 +24,20 @@ http://localhost:3001
 
 ```text
 .
-├─ package.json
-├─ render.yaml
-├─ DEPLOYMENT.md
-├─ scripts/dev.js
-├─ server
-│  ├─ index.js
-│  ├─ store.js
-│  └─ data/db.json
-└─ src
-   ├─ App.jsx
-   ├─ api.js
-   ├─ components/MapView.jsx
-   ├─ main.jsx
-   └─ styles.css
+鈹溾攢 package.json
+鈹溾攢 render.yaml
+鈹溾攢 DEPLOYMENT.md
+鈹溾攢 scripts/dev.js
+鈹溾攢 server
+鈹? 鈹溾攢 index.js
+鈹? 鈹溾攢 store.js
+鈹? 鈹斺攢 data/db.json
+鈹斺攢 src
+   鈹溾攢 App.jsx
+   鈹溾攢 api.js
+   鈹溾攢 components/MapView.jsx
+   鈹溾攢 main.jsx
+   鈹斺攢 styles.css
 ```
 
 ## Features
@@ -53,3 +53,7 @@ http://localhost:3001
 ## Data
 
 Data is stored in `server/data/db.json` for MVP simplicity.
+
+## Real multi-user mode
+
+The backend now supports PostgreSQL through `DATABASE_URL`. Deploy the full-stack app to Render/Railway and set `DATABASE_URL` to make data shared across users. Without `DATABASE_URL`, local development uses `server/data/db.json`.
