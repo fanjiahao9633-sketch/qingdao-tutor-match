@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import MapView from "./components/MapView.jsx";
 import { api } from "./api.js";
 
