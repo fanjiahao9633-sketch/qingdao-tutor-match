@@ -1,0 +1,66 @@
+{
+  "users": [
+    {
+      "id": "parent-demo",
+      "role": "parent",
+      "nickname": "家长演示账号",
+      "createdAt": "2026-06-26T00:00:00.000Z"
+    },
+    {
+      "id": "teacher-demo",
+      "role": "teacher",
+      "nickname": "教师演示账号",
+      "createdAt": "2026-06-26T00:00:00.000Z"
+    }
+  ],
+  "tutorRequests": [
+    {
+      "id": "req-seed-1",
+      "parentId": "parent-demo",
+      "parentNickname": "家长演示账号",
+      "studentGrade": "初二",
+      "studentGender": "女",
+      "subject": "数学",
+      "frequency": "每周2次",
+      "duration": "每次2小时",
+      "expectedTime": "周三晚、周六下午",
+      "budgetMin": 120,
+      "budgetMax": 180,
+      "mode": "offline",
+      "address": "市南区 香港中路附近",
+      "area": "市南区",
+      "latitude": 36.0668,
+      "longitude": 120.3826,
+      "requirements": "希望老师有初中数学提分经验。请勿填写详细门牌号。",
+      "status": "open",
+      "createdAt": "2026-06-26T00:00:00.000Z"
+    }
+  ],
+  "teacherProfiles": [
+    {
+      "id": "teacher-seed-1",
+      "teacherId": "teacher-demo",
+      "name": "李老师",
+      "gender": "男",
+      "school": "中国海洋大学",
+      "degree": "本科在读",
+      "major": "数学与应用数学",
+      "subjects": "数学, 物理",
+      "serviceAreas": "市南区, 崂山区",
+      "expectedPrice": 150,
+      "availableTime": "周末、工作日晚",
+      "experience": "2年一对一家教经验",
+      "bio": "擅长梳理知识框架和错题复盘。",
+      "certificates": "数学竞赛省级奖项",
+      "address": "崂山区 海大崂山校区附近",
+      "area": "崂山区",
+      "latitude": 36.1601,
+      "longitude": 120.4979,
+      "status": "open",
+      "createdAt": "2026-06-26T00:00:00.000Z"
+    }
+  ],
+  "interests": [],
+  "matches": [],
+  "messages": []
+}
