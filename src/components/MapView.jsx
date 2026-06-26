@@ -66,7 +66,7 @@ export default function MapView({ items, selectedId, onSelect, picker, onPick })
         iconAnchor: [19, 19]
       });
       const marker = L.marker([item.latitude, item.longitude], { icon }).addTo(layer);
-      marker.on("click", () => onSelect(item));
+      marker.on("click", () => onSelect?.(item));
       marker.bindPopup(`
         <strong>${item.kind === "request" ? item.subject : item.name}</strong><br/>
         ${item.area || item.address || "青岛市"}<br/>

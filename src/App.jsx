@@ -48,9 +48,18 @@ function modeLabel(mode) {
   return { online: "线上", offline: "线下", both: "线上/线下" }[mode] || mode;
 }
 
+function statusLabel(status) {
+  return status === "chatting" ? "正在接触中" : "无人私聊";
+}
+
 function formatTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function priceText(item) {
+  if (!item) return "";
+  return item.kind === "request" ? `${item.budgetMin}-${item.budgetMax} 元/小时` : `${item.expectedPrice} 元/小时`;
 }
 
 export default function App() {
@@ -70,8 +79,21 @@ export default function App() {
   }, []);
 
   const currentUser = useMemo(() => {
-    return data.users.find((user) => user.role === role) || { id: role === "parent" ? "parent-demo" : "teacher-demo", role, nickname: role === "parent" ? "家长演示账号" : "教师演示账号" };
+    return data.users.find((user) => user.role === role) || {
+      id: role === "parent" ? "parent-demo" : "teacher-demo",
+      role,
+      nickname: role === "parent" ? "家长演示账号" : "教师演示账号"
+    };
   }, [data.users, role]);
+
+  const stats = useMemo(() => {
+    return [
+      { label: "家教需求", value: data.tutorRequests.length, tone: "blue" },
+      { label: "教师简历", value: data.teacherProfiles.length, tone: "green" },
+      { label: "成功匹配", value: data.matches.length, tone: "violet" },
+      { label: "站内消息", value: data.messages.length, tone: "slate" }
+    ];
+  }, [data]);
 
   const myRequest = data.tutorRequests.find((item) => item.parentId === currentUser.id) || data.tutorRequests[0];
   const myTeacherProfile = data.teacherProfiles.find((item) => item.teacherId === currentUser.id) || data.teacherProfiles[0];
@@ -114,7 +136,7 @@ export default function App() {
     setData(await api.bootstrap());
     setSelected({ ...created, kind: "request" });
     setTab("map");
-    setNotice("家教需求已发布，地图位置已做轻微模糊化处理。");
+    setNotice("家教需求已发布。地图位置已做轻微模糊处理，公开卡片不会展示联系方式。");
   }
 
   async function submitTeacher(event) {
@@ -123,7 +145,7 @@ export default function App() {
     setData(await api.bootstrap());
     setSelected({ ...created, kind: "teacher" });
     setTab("map");
-    setNotice("教师简历已发布，地图位置已做轻微模糊化处理。");
+    setNotice("教师简历已发布。地图位置已做轻微模糊处理，可在首页列表中查看。");
   }
 
   async function showInterest(item) {
@@ -133,7 +155,7 @@ export default function App() {
         : { fromRole: "teacher", targetType: "request", targetId: item.id, teacherProfileId: myTeacherProfile?.id };
       const result = await api.interest(payload);
       await refreshFromSnapshot(result);
-      setNotice(result.match ? "匹配成功，已开启私聊入口。" : "已发送兴趣，等待对方回应。");
+      setNotice(result.match ? "匹配成功，已开启私聊入口。" : "已发送兴趣，等待对方回应。双方互相感兴趣后才可私聊。");
     } catch (err) {
       setNotice(err.message);
     }
@@ -151,28 +173,62 @@ export default function App() {
     if (!item) return <div className="empty">暂无符合条件的信息。</div>;
     const isRequest = item.kind === "request";
     const canInterest = (role === "parent" && !isRequest) || (role === "teacher" && isRequest);
-    const title = isRequest ? `${item.subject}家教 · ${item.studentGrade}` : `${item.name} · ${item.subjects}`;
+    const title = isRequest ? `${item.subject || "待填写科目"}家教 · ${item.studentGrade || "年级待定"}` : `${item.name || "教师"} · ${item.subjects || "科目待定"}`;
     return (
       <article className={`info-card ${item.id === selectedItem?.id ? "selected" : ""}`} onClick={() => setSelected(item)}>
         <div className="card-head">
           <span className={`dot ${isRequest ? "blue" : "green"} ${item.status === "chatting" ? "solid" : ""}`} />
           <div>
-            <h3>{title}</h3>
-            <p>{item.area || item.address} · {item.status === "chatting" ? "正在接触中" : "无人私聊"}</p>
+            <div className="card-title-line">
+              <h3>{title}</h3>
+              <span className={`status-pill ${item.status === "chatting" ? "active" : ""}`}>{statusLabel(item.status)}</span>
+            </div>
+            <p>{item.area || item.address || "青岛市"} · {isRequest ? modeLabel(item.mode) : item.school || item.degree || "教师简历"}</p>
           </div>
         </div>
         <div className="meta-grid">
-          <span>{isRequest ? `${item.budgetMin}-${item.budgetMax} 元/小时` : `${item.expectedPrice} 元/小时`}</span>
-          <span>{isRequest ? item.frequency : item.serviceAreas}</span>
-          <span>{isRequest ? modeLabel(item.mode) : item.availableTime}</span>
+          <span>{priceText(item)}</span>
+          <span>{isRequest ? item.frequency || "频率待定" : item.serviceAreas || "区域待定"}</span>
+          <span>{isRequest ? item.expectedTime || "时间待定" : item.availableTime || "时间待定"}</span>
         </div>
-        <p className="summary">{isRequest ? item.requirements : item.bio}</p>
+        <p className="summary">{isRequest ? item.requirements || "暂无补充要求。" : item.bio || item.experience || "暂无个人简介。"}</p>
         {canInterest && (
           <button className="primary small" onClick={(event) => { event.stopPropagation(); showInterest(item); }}>
             感兴趣
           </button>
         )}
       </article>
+    );
+  }
+
+  function renderDetail(item) {
+    if (!item) return <div className="empty">点击地图标记或列表卡片查看详情。</div>;
+    const isRequest = item.kind === "request";
+    return (
+      <div className="detail-content">
+        {renderCard(item)}
+        <div className="detail-grid">
+          {isRequest ? (
+            <>
+              <DetailRow label="学生信息" value={`${item.studentGrade || "未填写"}${item.studentGender ? ` · ${item.studentGender}` : ""}`} />
+              <DetailRow label="预算范围" value={priceText(item)} />
+              <DetailRow label="授课节奏" value={`${item.frequency || "未填写"} / ${item.duration || "未填写"}`} />
+              <DetailRow label="期望时间" value={item.expectedTime || "未填写"} />
+              <DetailRow label="授课形式" value={modeLabel(item.mode)} />
+              <DetailRow label="模糊位置" value={item.address || item.area || "青岛市"} />
+            </>
+          ) : (
+            <>
+              <DetailRow label="学校学历" value={`${item.school || "未填写"}${item.degree ? ` · ${item.degree}` : ""}`} />
+              <DetailRow label="专业" value={item.major || "未填写"} />
+              <DetailRow label="可教科目" value={item.subjects || "未填写"} />
+              <DetailRow label="授课区域" value={item.serviceAreas || item.area || "未填写"} />
+              <DetailRow label="可授课时间" value={item.availableTime || "未填写"} />
+              <DetailRow label="证书经历" value={item.certificates || "未填写"} />
+            </>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -213,6 +269,13 @@ export default function App() {
       {tab === "map" && (
         <main className="map-layout">
           <section className="map-panel">
+            <div className="insight-row">
+              {stats.map((item) => <StatCard key={item.label} {...item} />)}
+            </div>
+            <div className="trust-banner">
+              <strong>安全提示</strong>
+              <span>不要公开手机号、身份证号和详细门牌号；匹配成功后再通过站内私聊沟通。</span>
+            </div>
             <MapView items={mapItems} selectedId={selectedItem?.id} onSelect={setSelected} />
             <div className="legend">
               <span><i className="legend-blue" />蓝色家教需求</span>
@@ -240,8 +303,9 @@ export default function App() {
             </div>
             <div className="detail">
               <h2>详情</h2>
-              {renderCard(selectedItem)}
+              {renderDetail(selectedItem)}
             </div>
+            <div className="list-head"><strong>信息列表</strong><span>{mapItems.length} 条</span></div>
             <div className="list">{mapItems.map(renderCard)}</div>
           </aside>
         </main>
@@ -253,14 +317,14 @@ export default function App() {
             <Field label="学生年级" value={requestForm.studentGrade} onChange={(v) => setRequestForm({ ...requestForm, studentGrade: v })} required />
             <Field label="学生性别" value={requestForm.studentGender} onChange={(v) => setRequestForm({ ...requestForm, studentGender: v })} />
             <Field label="科目" value={requestForm.subject} onChange={(v) => setRequestForm({ ...requestForm, subject: v })} required />
-            <Field label="每周频率" value={requestForm.frequency} onChange={(v) => setRequestForm({ ...requestForm, frequency: v })} />
-            <Field label="每次时长" value={requestForm.duration} onChange={(v) => setRequestForm({ ...requestForm, duration: v })} />
-            <Field label="期望时间" value={requestForm.expectedTime} onChange={(v) => setRequestForm({ ...requestForm, expectedTime: v })} />
+            <Field label="每周频率" value={requestForm.frequency} onChange={(v) => setRequestForm({ ...requestForm, frequency: v })} placeholder="如：每周2次" />
+            <Field label="每次时长" value={requestForm.duration} onChange={(v) => setRequestForm({ ...requestForm, duration: v })} placeholder="如：每次2小时" />
+            <Field label="期望时间" value={requestForm.expectedTime} onChange={(v) => setRequestForm({ ...requestForm, expectedTime: v })} placeholder="如：周末下午" />
             <Field label="预算下限" type="number" value={requestForm.budgetMin} onChange={(v) => setRequestForm({ ...requestForm, budgetMin: v })} />
             <Field label="预算上限" type="number" value={requestForm.budgetMax} onChange={(v) => setRequestForm({ ...requestForm, budgetMax: v })} />
             <label>授课形式<select value={requestForm.mode} onChange={(e) => setRequestForm({ ...requestForm, mode: e.target.value })}><option value="offline">线下</option><option value="online">线上</option><option value="both">线上/线下</option></select></label>
-            <Field label="位置/商圈" value={requestForm.address} onChange={(v) => setRequestForm({ ...requestForm, address: v })} />
-            <label className="wide">其他要求<textarea value={requestForm.requirements} onChange={(e) => setRequestForm({ ...requestForm, requirements: e.target.value })} /></label>
+            <Field label="位置/商圈" value={requestForm.address} onChange={(v) => setRequestForm({ ...requestForm, address: v })} placeholder="如：市南区 香港中路附近" />
+            <label className="wide">其他要求<textarea value={requestForm.requirements} onChange={(e) => setRequestForm({ ...requestForm, requirements: e.target.value })} placeholder="请写学习目标、老师偏好等，不要写详细门牌号。" /></label>
             <div className="wide picker"><MapView picker items={[]} onPick={(pos) => setRequestForm({ ...requestForm, ...pos })} /></div>
             <button className="primary wide">提交需求</button>
           </form>
@@ -275,8 +339,8 @@ export default function App() {
             <Field label="学校" value={teacherForm.school} onChange={(v) => setTeacherForm({ ...teacherForm, school: v })} />
             <Field label="学历" value={teacherForm.degree} onChange={(v) => setTeacherForm({ ...teacherForm, degree: v })} />
             <Field label="专业" value={teacherForm.major} onChange={(v) => setTeacherForm({ ...teacherForm, major: v })} />
-            <Field label="可教科目" value={teacherForm.subjects} onChange={(v) => setTeacherForm({ ...teacherForm, subjects: v })} required />
-            <Field label="授课区域" value={teacherForm.serviceAreas} onChange={(v) => setTeacherForm({ ...teacherForm, serviceAreas: v })} />
+            <Field label="可教科目" value={teacherForm.subjects} onChange={(v) => setTeacherForm({ ...teacherForm, subjects: v })} required placeholder="如：数学, 物理" />
+            <Field label="授课区域" value={teacherForm.serviceAreas} onChange={(v) => setTeacherForm({ ...teacherForm, serviceAreas: v })} placeholder="如：市南区, 崂山区" />
             <Field label="期望薪资" type="number" value={teacherForm.expectedPrice} onChange={(v) => setTeacherForm({ ...teacherForm, expectedPrice: v })} />
             <Field label="可授课时间" value={teacherForm.availableTime} onChange={(v) => setTeacherForm({ ...teacherForm, availableTime: v })} />
             <Field label="位置/商圈" value={teacherForm.address} onChange={(v) => setTeacherForm({ ...teacherForm, address: v })} />
@@ -324,8 +388,8 @@ export default function App() {
   );
 }
 
-function Field({ label, value, onChange, type = "text", required = false }) {
-  return <label>{label}<input type={type} value={value} required={required} onChange={(e) => onChange(e.target.value)} /></label>;
+function Field({ label, value, onChange, type = "text", required = false, placeholder = "" }) {
+  return <label>{label}<input type={type} value={value} required={required} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
 function FormShell({ title, tip, children }) {
@@ -338,6 +402,14 @@ function Panel({ title, children }) {
 
 function StatusRow({ title, status }) {
   return <div className="status-row"><span>{title}</span><strong>{status === "matched" ? "匹配成功" : "等待对方回应"}</strong></div>;
+}
+
+function StatCard({ label, value, tone }) {
+  return <div className={`stat-card ${tone}`}><strong>{value}</strong><span>{label}</span></div>;
+}
+
+function DetailRow({ label, value }) {
+  return <div className="detail-row"><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function Empty({ text = "暂无数据。" }) {
